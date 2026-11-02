@@ -14,7 +14,7 @@ class VisionDraftTest {
     IntelligenceClient ai=mock(IntelligenceClient.class);
     when(ai.call(eq("/capabilities"),any(),eq(5))).thenReturn(Map.of("services",Map.of("vision",Map.of("available",true))));
     when(ai.call(eq("/vision"),any(),eq(50))).thenReturn(Map.of("available",true,"candidate",Map.of("kind","drink","amountMl",300)));
-    var controller=new InsightsController(data,events,mock(CareService.class),ai);
+    var controller=new InsightsController(data,events,mock(CareService.class),ai,mock(BladderClient.class));
     var request=new MockHttpServletRequest();request.setAttribute("actor",new Actor(UUID.randomUUID(),"qa","qa","user",true));
     String photo="data:image/png;base64,"+Base64.getEncoder().encodeToString(new byte[100]);
     var body=Map.<String,Object>of("beforeImage",photo,"afterImage",photo,"kind","drink","context","500ml");

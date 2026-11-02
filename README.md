@@ -1,4 +1,4 @@
-# Aquora Java 后端
+# 水知己 Java 后端
 
 Aquora 应用的 Java 后端，使用 Java 21、Spring Boot 3.5.16、Spring JDBC、PostgreSQL 和 Flyway。仓库包含认证、用户资料、记录、护理计划、固定智能服务、Agent 网关和管理接口的源码，以及数据库迁移和单元测试。
 
@@ -65,6 +65,10 @@ java -jar target/aquora-core-1.0.0.jar
 Agent 返回的饮水等候选信息只用于预填卡片，仍需用户通过现有记录接口确认保存。固定场景智能接口继续使用 `AI_BASE_URL`；Agent 单独使用 `AGENT_BASE_URL`。两个 Python 服务不包含在此 Java 后端仓库中。
 
 `AgentScopeTest` 检查客户端身份注入、未知场景和工具配置在调用服务前被拒绝；与现有图片候选测试一起运行 `mvn test`。
+
+## 状态估算与个人报告
+
+`GET /api/state` 从已登录用户的记录计算请求参数，通过 `AGENT_BASE_URL` 调用独立部署的膀胱估算服务。`/api/personal-report` 提供个人指标汇总，`/api/personal-report/events` 提供历史明细，`POST /api/personal-report/interpret` 通过 `AI_BASE_URL` 获取解读。
 
 ## 目录
 

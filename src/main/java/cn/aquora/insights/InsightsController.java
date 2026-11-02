@@ -16,13 +16,15 @@ public class InsightsController {
   private final EventService events;
   private final CareService care;
   private final IntelligenceClient ai;
+  private final BladderClient bladder;
   private final Map<String, long[]> aiBuckets = new HashMap<>();
 
-  public InsightsController(Data d, EventService e, CareService c, IntelligenceClient ai) {
+  public InsightsController(Data d, EventService e, CareService c, IntelligenceClient ai, BladderClient bladder) {
     this.d = d;
     events = e;
     care = c;
     this.ai = ai;
+    this.bladder = bladder;
   }
 
   private Map<String, Object> profile(UUID u) {
@@ -90,16 +92,14 @@ public class InsightsController {
     var p = profile(u);
     if (!Boolean.TRUE.equals(p.get("modelEnabled")))
       return Map.of("available", false, "message", "研究性估算尚未启用。可在个人档案中了解并开启；日常记录与计划不受影响。");
-    return ai.call(
-        "/state",
-        Map.of(
-            "events",
-            events.list(u, Data.now() - 7L * 86400000, Data.now()),
-            "profile",
-            p,
-            "now",
-            Data.now()),
-        8);
+    long now = Data.now();
+    // Identity comes exclusively from the authenticated session; no client events.
+    var rows = d.db.queryForList(
+        "SELECT id,kind,amount_ml,occurred_at,emptying FROM events WHERE user_id=? AND deleted=false AND occurred_at>=? AND occurred_at<=? ORDER BY occurred_at,id LIMIT 10001",
+        u, now - 28L * 86400000, now);
+    if (rows.size() > 10000)
+      return Map.of("available", false, "code", "truncated", "message", "记录过多，暂无法完整计算");
+    return bladder.estimate(Map.of("events", rows, "profile", p, "now", now));
   }
 
   @GetMapping("/reports")

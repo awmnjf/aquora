@@ -36,11 +36,11 @@ public class ProfileController {
     if (!Set.of("catheter", "voiding", "drainage").contains(method))
       throw new ApiException(400, "请选择管理方式");
     data.put("method", method);
-    for (String key : List.of("age", "weight", "baselineRate", "conversionRatio", "residual")) {
+    for (String key : List.of("age", "weight", "baselineRate", "conversionRatio", "residual", "referenceVolume")) {
       Object value = b.get(key);
       if (value != null && !value.toString().isBlank()) {
         double v = Double.parseDouble(value.toString());
-        double min = key.equals("age") ? 18 : key.equals("weight") ? 20 : 0;
+        double min = key.equals("age") ? 18 : key.equals("weight") ? 20 : key.equals("referenceVolume") ? 50 : 0;
         double max =
             switch (key) {
               case "age" -> 120;
