@@ -18,12 +18,14 @@ class BladderIntegrationTest {
   var controller=new InsightsController(new Data(db,new ObjectMapper()),mock(EventService.class),mock(CareService.class),ai,bladder);
   UUID u=UUID.randomUUID();var r=new MockHttpServletRequest();r.setAttribute("actor",new Actor(u,"test","test","user",true));
   when(db.queryForObject(anyString(),eq(String.class),eq(u))).thenReturn("{\"modelEnabled\":true}");
+  when(db.queryForObject(anyString(),eq(Long.class),eq(u))).thenReturn(123L);
   when(db.queryForList(anyString(),eq(u),anyLong(),anyLong())).thenReturn(List.of(Map.of("id","one","kind","drink","amount_ml",100,"occurred_at",1L)));
   when(bladder.estimate(any())).thenReturn(Map.of("available",false));
   controller.state(r);
   var sql=ArgumentCaptor.forClass(String.class);verify(db).queryForList(sql.capture(),eq(u),anyLong(),anyLong());
   assertTrue(sql.getValue().contains("user_id=? AND deleted=false"));assertTrue(sql.getValue().contains("LIMIT 10001"));
   var body=ArgumentCaptor.forClass(Object.class);verify(bladder).estimate(body.capture());
+  assertEquals(123L,((Map<?,?>)body.getValue()).get("accountCreatedAt"));
   assertEquals(1,((List<?>)((Map<?,?>)body.getValue()).get("events")).size());verifyNoInteractions(ai);
  }
  @Test void refusesSilentTruncation() {

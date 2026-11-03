@@ -23,6 +23,26 @@ public class ProfileController {
     return Map.of("data", d.object(row.get("data")), "version", row.get("version"));
   }
 
+  public record ResetCalibration(int version, Double volumeMl) {}
+
+  @PostMapping("/calibration")
+  @Transactional
+  Object resetCalibration(@RequestBody ResetCalibration body, HttpServletRequest r) {
+    UUID user = Actor.from(r).id();
+    Double volume = body.volumeMl();
+    if (volume != null && (!Double.isFinite(volume) || volume < 0 || volume > 1000))
+      throw new ApiException(400, "当前测量值应在0到1000毫升之间");
+    Map<String,Object> calibration = new LinkedHashMap<>();
+    calibration.put("at", Data.now());
+    if (volume != null) calibration.put("volumeMl", volume);
+    int changed = d.db.update(
+        "UPDATE profiles SET data=jsonb_set(data,'{calibration}',?::jsonb),version=version+1 WHERE user_id=? AND version=?",
+        d.json(calibration), user, body.version());
+    if (changed != 1) throw new ApiException(409, "档案已更新，请刷新后重试");
+    d.audit(user, "profile.calibration.reset", user);
+    return get(r);
+  }
+
   @PutMapping
   @Transactional
   Object save(@RequestBody Map<String, Object> b, HttpServletRequest r) {
@@ -36,11 +56,11 @@ public class ProfileController {
     if (!Set.of("catheter", "voiding", "drainage").contains(method))
       throw new ApiException(400, "请选择管理方式");
     data.put("method", method);
-    for (String key : List.of("age", "weight", "baselineRate", "conversionRatio", "residual", "referenceVolume")) {
+    for (String key : List.of("age", "weight", "baselineRate", "conversionRatio", "residual", "referenceVolume", "recommendedEmptyMl")) {
       Object value = b.get(key);
       if (value != null && !value.toString().isBlank()) {
         double v = Double.parseDouble(value.toString());
-        double min = key.equals("age") ? 18 : key.equals("weight") ? 20 : key.equals("referenceVolume") ? 50 : 0;
+        double min = key.equals("age") ? 18 : key.equals("weight") ? 20 : key.equals("referenceVolume") ? 50 : key.equals("recommendedEmptyMl") ? 1 : 0;
         double max =
             switch (key) {
               case "age" -> 120;
@@ -54,10 +74,10 @@ public class ProfileController {
         data.put(key, v);
       }
     }
-    data.put("modelEnabled", Boolean.TRUE.equals(b.get("modelEnabled")));
+    if (b.containsKey("modelEnabled")) data.put("modelEnabled", Boolean.TRUE.equals(b.get("modelEnabled")));
     data.put("modelStatus", "experimental");
     if (d.db.update(
-            "UPDATE profiles SET data=?::jsonb,version=version+1 WHERE user_id=? AND version=?",
+            "UPDATE profiles SET data=jsonb_strip_nulls(jsonb_build_object('calibration', data->'calibration','modelEnabled',data->'modelEnabled')) || ?::jsonb,version=version+1 WHERE user_id=? AND version=?",
             d.json(data),
             a.id(),
             version)
